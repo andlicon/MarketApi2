@@ -2,8 +2,9 @@
 This module takes care of starting the API Server, Loading the DB and Adding the endpoints
 """
 from flask import Flask, request, jsonify, url_for, Blueprint
-from api.models import db, User, Product, ProductOrder, Order
+from api.models import db, User, Product, ProductOrder, Order, OrderStatus
 from api.utils import generate_sitemap, APIException
+from sqlalchemy.sql import func
 
 api = Blueprint('api', __name__)
 
@@ -159,16 +160,24 @@ def patch_product(id):
 
 
 # all product user sale
-@api.route('/sales/user/<int:id>', methods=['GET'])
+@api.route('/sales/product/user/<int:id>', methods=['GET'])
 def user_product_sale(id):
     user = User.query.filter_by(id=id).one_or_none()
     if user is None:
         return jsonify({'msg': 'User not found'}), 404
 
-    product_sales = Product.query.filter_by(user_id=user.id, status=OrderStatus.SALE)
-    serialized = list(map(lambda product: product.serialize(), product_sales))
+    order_list = Order.query.filter_by(user_id=user.id, status=OrderStatus.SALE).all()
 
-    return jsonify(serialized), 200
+    product_list = []
+    for order in order_list:
+        product_order_list = ProductOrder.query.filter_by(order_id=order.id).all()
+        for product_order in product_order_list:
+            product = product_order.product.serialize()
+            if product in product_list:
+                continue
+            product_list.append(product)
+
+    return jsonify(product_list), 200
 
 
 # all product by order
@@ -178,7 +187,7 @@ def get_order(id):
     if order is None:
         return jsonify({'msg': 'Order not found'}), 404
 
-    product_order_list = ProductOrder.query.filter_by(order_id=id)
+    product_order_list = ProductOrder.query.filter_by(order_id=id).all()
     serialized = []
     for product_order in product_order_list:
         obj = {
@@ -189,3 +198,13 @@ def get_order(id):
 
 
     return jsonify(serialized), 200
+
+
+# all user that has bought
+@api.route('/user/has-bought', methods=['GET'])
+def user_has_bought():
+    order_list = Order.query.filter_by(status=OrderStatus.SALE).distinct(Order.user_id).all()
+
+    user_list = list(map(lambda order: order.user.serialize(), order_list))
+
+    return jsonify(user_list), 200

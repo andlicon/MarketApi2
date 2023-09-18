@@ -61,6 +61,7 @@ class ProductOrder(db.Model):
             "id": self.id,
             "product_id": self.product_id,
             "order_id": self.order_id,
+            "amount": self.amount,
         }
 
 
@@ -85,8 +86,6 @@ class Order(db.Model):
         return {
             "id": self.id,
             "user_id": self.user_id,
-            "product_order_id": self.product_order_id,
-            "amount": self.amount,
             "status": self.status.value,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
